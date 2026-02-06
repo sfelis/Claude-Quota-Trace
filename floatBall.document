@@ -1,0 +1,201 @@
+# Floating Ball - Project Documentation
+
+This document provides context for understanding and resuming work on the Floating Ball project.
+
+## Target
+
+A macOS floating desktop widget that displays Claude API subscription usage in real-time. The ball shows:
+- **5-hour usage**: Short-term quota consumption (left ball)
+- **7-day usage**: Weekly quota consumption (right ball)
+
+The widget is always-on-top, draggable, and provides visual feedback through animated themes with color-coded usage indicators.
+
+### Key Features
+- Dual-ball display (5h and 7d quotas)
+- Multiple visual themes (glacier, space, water, etc.)
+- Animated effects (waves, rotating dials)
+- OAuth login via Playwright browser automation
+- Cloudflare bypass using curl_cffi with Chrome TLS impersonation
+- Performance monitoring with dev overlay
+- Configurable refresh intervals
+
+## Framework
+
+### Technology Stack
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| GUI | PyQt6 | Desktop widget rendering |
+| Auth | Playwright | OAuth browser automation |
+| API | curl_cffi | Cloudflare bypass, API requests |
+| Storage | JSON files | Cookies, config (~/.floating-ball/) |
+| Settings | QSettings | App preferences |
+
+### Dependencies (requirements.txt)
+```
+PyQt6>=6.6.0      # GUI framework
+requests>=2.31.0  # HTTP requests (backup)
+playwright>=1.40.0 # Browser automation for login
+curl_cffi>=0.6.0  # Cloudflare bypass
+```
+
+### Platform
+- macOS 10.14+ (primary target)
+- Python 3.9+
+
+## Resources
+
+### Knowledge Files (Read for context)
+| File | Purpose |
+|------|---------|
+| `UI.knowledge` | UI design principles, color selection, font guidelines, visual effects |
+| `Performance.knowledge` | Rendering optimization, caching strategies, animation timing |
+| `PerformanceMonitor.knowledge` | Dev overlay implementation, metrics tracking |
+
+### Theme Reference
+| Theme | File | Description |
+|-------|------|-------------|
+| space | `themes/space_theme.py` | Dual-dial with space background, animated ring (production) |
+| space-test | `themes/space_test_theme.py` | Experimental version of space theme |
+| glacier | `themes/glacier_theme.py` | Animated floating glacier on water |
+| glacier-test | `themes/glacier_test_theme.py` | Experimental glacier with clock dial |
+| water | `themes/water_theme.py` | Simple water fill effect |
+| real-water | `themes/real_water_theme.py` | Realistic water simulation |
+| circle | `themes/circle_theme.py` | Basic circular progress indicator |
+
+### Design Documentation
+- `themes/README.md` - How to create new themes
+- `README.md` - User-facing documentation
+- `PLAN.md` - Original implementation plan
+
+## Structure
+
+### File Organization
+```
+floating/
+├── main.py              # Entry point
+├── ball_window.py       # Main widget (BallWindow class)
+├── settings_dialog.py   # Settings UI (SettingsDialog class)
+├── auth_service.py      # OAuth login (AuthService class)
+├── api_service.py       # API requests (APIService class)
+├── themes/
+│   ├── __init__.py      # Theme registry (THEMES dict)
+│   ├── base_theme.py    # BaseTheme ABC, BallData class
+│   ├── color_themes.py  # ColorTheme definitions
+│   ├── space_theme.py   # Space theme (dual dials)
+│   ├── glacier_theme.py # Glacier theme (water + ice)
+│   └── ...              # Other themes
+├── scripts/             # Development/test scripts
+├── *.knowledge          # Design documentation
+└── requirements.txt
+```
+
+### Data Flow
+```
+┌─────────────────┐      ┌──────────────┐      ┌─────────────────┐
+│   AuthService   │ ──▶  │  APIService  │ ──▶  │   BallWindow    │
+│  (OAuth/Cookies)│      │ (Usage Data) │      │ (Display/Theme) │
+└─────────────────┘      └──────────────┘      └─────────────────┘
+        ▲                                              │
+        │                                              ▼
+   Playwright                                    Theme.draw_ball()
+   (Browser Login)                                     │
+                                                       ▼
+                                                  QPainter
+```
+
+### Key Classes
+| Class | File | Responsibility |
+|-------|------|----------------|
+| `BallWindow` | ball_window.py | Main widget, animation, context menu |
+| `SettingsDialog` | settings_dialog.py | Settings UI, theme selection |
+| `AuthService` | auth_service.py | Login, cookies, org selection |
+| `APIService` | api_service.py | Fetch usage data, organizations |
+| `BaseTheme` | themes/base_theme.py | Theme interface (abstract) |
+| `BallData` | themes/base_theme.py | Data container for ball rendering |
+
+### Storage Locations
+| Data | Location |
+|------|----------|
+| Cookies | `~/.floating-ball/cookies.json` |
+| Config | `~/.floating-ball/config.json` |
+| Settings | `~/Library/Preferences/FloatingBall/ClaudeUsage.plist` |
+
+## Tools
+
+### Running the App
+```bash
+# Start the application
+python3 main.py
+
+# Run in background
+python3 main.py &
+```
+
+### Development Scripts (scripts/)
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `test_login.py` | Test OAuth login flow | `python3 scripts/test_login.py` |
+| `test_api.py` | Test API endpoints | `python3 scripts/test_api.py` |
+| `test_curl_cffi.py` | Test Cloudflare bypass | `python3 scripts/test_curl_cffi.py` |
+| `debug_api.py` | Debug API responses | `python3 scripts/debug_api.py` |
+| `test_headless.py` | Test headless browser | `python3 scripts/test_headless.py` |
+| `test_playwright_api.py` | Test Playwright API | `python3 scripts/test_playwright_api.py` |
+
+### Dev Mode (In-App)
+Right-click the ball → Dev menu:
+- **Show Performance**: Toggle performance overlay
+- **Render Mode**: Switch between No Cache / Background Cache / Full Cache
+
+### Playwright Setup
+```bash
+# Install browsers (first time only)
+playwright install chromium
+```
+
+## Key Implementation Details
+
+### Render Modes
+| Mode | Value | Description |
+|------|-------|-------------|
+| No Cache | 0 | Draw everything fresh each frame |
+| Background Cache | 1 | Cache shadow + rim only |
+| Full Cache | 2 | Cache background + light effect (default) |
+
+### Animation System
+- Timer interval: 50ms (20 FPS)
+- Animation phase: 0-360 degrees, increments each frame
+- Phase used for: wave motion, rotating elements, dial movement
+
+### Theme Interface
+```python
+class BaseTheme(ABC):
+    def is_animated(self) -> bool          # Does theme animate?
+    def get_ball_size(self) -> int         # Ball diameter in pixels
+    def get_spacing(self) -> int           # Gap between balls
+    def draw_ball(painter, x_offset, data, animation_phase, render_mode)
+```
+
+### BallData Fields
+```python
+BallData(
+    usage_percentage: float,   # 0.0 to 1.0
+    utilization: int,          # 0 to 100 (display percentage)
+    reset_time: str,           # "2h 30m" or "now"
+    label: str,                # "5h" or "7d"
+    is_error: bool,            # Error state flag
+    time_percentage: float     # 0.0 to 1.0 (time elapsed in period)
+)
+```
+
+### Adding a New Theme
+1. Create `themes/new_theme.py` with class extending `BaseTheme`
+2. Add import to `themes/__init__.py`
+3. Add to `THEMES` dict in `themes/__init__.py`
+4. Add to theme dropdown in `settings_dialog.py`
+
+## Recent Changes Summary
+
+- **Space theme**: Dual-dial visualization (blue=quota, green=time)
+- **Animated ring**: Rotating decorative element at 0.7x speed
+- **Full cache default**: render_mode=2 is now default
+- **Time percentage**: Added to BallData for time dial visualization
