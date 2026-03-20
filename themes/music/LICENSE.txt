@@ -1,0 +1,13 @@
+Music Tracks - License Information
+===================================
+
+All tracks are CC0 1.0 Universal (Public Domain). Each was released
+by its original composer — not a third-party curator.
+
+See music_source.knowledge for full provenance details.
+
+Tracks:
+  - dark_cavern_ambient_1.ogg  by Paul Wortmann   (CC0, OpenGameArt.org)
+  - dark_cavern_ambient_2.ogg  by Paul Wortmann   (CC0, OpenGameArt.org)
+  - ice_shine_bells.ogg        by hc              (CC0, OpenGameArt.org)
+  - distant_wonders.ogg        by CC0 Instruments (CC0, Archive.org)

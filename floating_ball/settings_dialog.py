@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QSettings, Qt, QThread, pyqtSignal
 
-from auth_service import AuthService
-from api_service import APIService, APIError
+from .auth_service import AuthService
+from .api_service import APIService, APIError
 
 
 class LoginThread(QThread):

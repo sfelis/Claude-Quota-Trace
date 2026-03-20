@@ -54,13 +54,15 @@ curl_cffi>=0.6.0  # Cloudflare bypass
 ### Theme Reference
 | Theme | File | Description |
 |-------|------|-------------|
-| space | `themes/space_theme.py` | Dual-dial with space background, animated ring (production) |
-| space-test | `themes/space_test_theme.py` | Experimental version of space theme |
+| opus | `themes/opus_theme.py` | Orchestral aurora: violet cosmos, golden ribbons, pulsing sound rings |
+| space | `themes/space_theme.py` | Dual-dial with space background, animated ring (default) |
+| space-test | `themes/space_test_theme.py` | Experimental: adds 7-day arcs visualization (dev only) |
 | glacier | `themes/glacier_theme.py` | Animated floating glacier on water |
-| glacier-test | `themes/glacier_test_theme.py` | Experimental glacier with clock dial |
-| water | `themes/water_theme.py` | Simple water fill effect |
-| real-water | `themes/real_water_theme.py` | Realistic water simulation |
+| glacier-test | `themes/glacier_test_theme.py` | Experimental glacier with clock dial (dev only) |
+| water | `themes/water_theme.py` | Realistic water fill with transparency |
 | circle | `themes/circle_theme.py` | Basic circular progress indicator |
+
+**Note**: Themes ending in `-test` only appear when dev mode is active (either `--dev` CLI flag or the in-app Dev Mode toggle via right-click menu).
 
 ### Design Documentation
 - `themes/README.md` - How to create new themes
@@ -81,9 +83,13 @@ floating/
 │   ├── __init__.py      # Theme registry (THEMES dict)
 │   ├── base_theme.py    # BaseTheme ABC, BallData class
 │   ├── color_themes.py  # ColorTheme definitions
+│   ├── opus_theme.py    # Opus theme (aurora + sound rings)
 │   ├── space_theme.py   # Space theme (dual dials)
 │   ├── glacier_theme.py # Glacier theme (water + ice)
-│   └── ...              # Other themes
+│   ├── water_theme.py   # Water theme (fill effect)
+│   ├── circle_theme.py  # Circle theme (progress ring)
+│   ├── *_test_theme.py  # Experimental themes (dev only)
+│   └── README.md        # Theme creation guide
 ├── scripts/             # Development/test scripts
 ├── *.knowledge          # Design documentation
 └── requirements.txt
@@ -124,11 +130,19 @@ floating/
 
 ### Running the App
 ```bash
-# Start the application
+# Start the application (normal mode)
 python3 main.py
+
+# Start with development mode (shows test themes)
+python3 main.py --dev
 
 # Run in background
 python3 main.py &
+
+# Using helper scripts
+./run.sh          # Foreground
+./start.sh        # Background
+./stop.sh         # Stop background instance
 ```
 
 ### Development Scripts (scripts/)
@@ -141,10 +155,22 @@ python3 main.py &
 | `test_headless.py` | Test headless browser | `python3 scripts/test_headless.py` |
 | `test_playwright_api.py` | Test Playwright API | `python3 scripts/test_playwright_api.py` |
 
+### Command Line Arguments
+```bash
+python3 main.py --help    # Show help
+python3 main.py --dev     # Enable development mode
+```
+
+**Dev Mode Effects**:
+- Shows experimental themes (glacier-test, space-test) in settings
+- Enables testing of new features before production release
+
 ### Dev Mode (In-App)
 Right-click the ball → Dev menu:
-- **Show Performance**: Toggle performance overlay
+- **Dev Mode (Show Stats)**: Toggle dev mode — also enables test themes in Settings dialog
 - **Render Mode**: Switch between No Cache / Background Cache / Full Cache
+
+**Note**: Test themes appear in Settings when dev mode is active from *either* the `--dev` CLI flag or the in-app Dev Mode toggle. The settings dialog checks both `QApplication.dev_mode` and `BallWindow.dev_mode`.
 
 ### Playwright Setup
 ```bash
@@ -187,15 +213,69 @@ BallData(
 )
 ```
 
+### Space-Test Theme: 7-Day Arcs
+The space-test theme includes a unique visualization for the 7-day ball:
+
+**Implementation** (`_draw_7day_arcs` method):
+- Divides circle into 7 equal arcs (51.43° each)
+- Calculates current day (0-6) from `time_percentage`
+- **Past days**: Dim blue (RGB 60,100,140, alpha 120), width 3
+- **Current day**:
+  - Completed: Bright cyan (RGB 0,220,255, alpha 200), width 5
+  - Remaining: Dim (RGB 60,100,140, alpha 80), width 3
+- **Future days**: Very dim (RGB 40,60,80, alpha 60), width 2
+- Day boundaries marked with thin radial lines
+
+**Calculation**:
+```python
+current_day = int(time_percentage * 7)      # Which day (0-6)
+day_progress = (time_percentage * 7) % 1.0  # Progress in current day
+```
+
 ### Adding a New Theme
 1. Create `themes/new_theme.py` with class extending `BaseTheme`
-2. Add import to `themes/__init__.py`
-3. Add to `THEMES` dict in `themes/__init__.py`
-4. Add to theme dropdown in `settings_dialog.py`
+2. Add import and entry to `THEMES` dict in `themes/__init__.py`
+3. Update theme list in `settings_dialog.py` (and `floating_ball/settings_dialog.py`):
+   - Production themes: Add to the main `themes = [...]` list
+   - Test themes: Add to the `dev_mode` conditional `themes.extend([...])` list
+4. **Important**: The project has duplicate files at root level and inside `floating_ball/` package — update both copies
 
 ## Recent Changes Summary
 
-- **Space theme**: Dual-dial visualization (blue=quota, green=time)
+### Opus Theme (newest)
+- **Visual concept**: Orchestral/musical — deep violet cosmos with golden aurora ribbons
+- **Animated aurora ribbons**: 3 flowing sine-wave bands (gold, violet, amber) that scale with usage
+- **Pulsing sound rings**: 4 concentric gold rings rippling outward
+- **Usage arc**: Sweeping golden crescent with layered glow and bright tip dot
+- **Time orbit**: Subtle violet arc on inner track with orbiting dot
+- **Prismatic outer rim**: Conical gradient shifting gold-to-lavender
+- **Typography**: Georgia serif, warm gold text with dark outlines
+- **Size**: 130px ball (larger than standard 100px)
+
+### Dev Mode Fix
+- **Test theme visibility**: Settings dialog now checks *both* `QApplication.dev_mode` (CLI `--dev` flag) and `BallWindow.dev_mode` (right-click menu toggle)
+- Previously test themes only appeared with CLI flag; now the in-app toggle also works
+
+### Core Features
+- **Default theme**: Changed from "water" to "space"
+- **Dev mode**: `--dev` flag or in-app toggle to show experimental themes
+- **Water theme**: Merged real-water into water (realistic blue water with transparency)
+- **Refresh intervals**: Added 1-minute option (default remains 5 minutes)
+
+### Space Theme Features
+- **Dual-dial visualization**: Blue dial for quota, green dial for time
 - **Animated ring**: Rotating decorative element at 0.7x speed
+- **7-day arcs** (space-test only): Visual representation of 7-day period
+  - Circle divided into 7 arcs, one per day
+  - Current day highlighted with bright cyan, shows daily progress
+  - Past days dimmed, future days very dim
+  - Day separator marks between each arc
+
+### Performance
 - **Full cache default**: render_mode=2 is now default
 - **Time percentage**: Added to BallData for time dial visualization
+
+### Configuration
+- Refresh intervals: 1, 5, 15, 30, 60 minutes
+- Themes filter based on dev mode (CLI flag or in-app toggle)
+- Installation scripts: install.sh, run.sh, start.sh, stop.sh
